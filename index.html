@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warung Syifa - Sistem Kasir</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#16a34a', // Green
+                        secondary: '#f97316', // Orange
+                        dark: '#1e293b',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        [x-cloak] {
+            display: none !important;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 text-gray-800 h-screen flex flex-col" x-data="app()" x-cloak>
+
+    <!-- Header -->
+    <header class="bg-primary text-white shadow-lg sticky top-0 z-20">
+        <div class="max-w-md mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
+                    <i class="fa-solid fa-shop text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">Warung Syifa</h1>
+                    <p class="text-[10px] opacity-90" x-text="currentDate"></p>
+                </div>
+            </div>
+            <button @click="isSettingsModalOpen = true"
+                class="bg-white/20 w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/30 backdrop-blur-sm transition-colors">
+                <i class="fa-solid fa-gear text-xs"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-y-auto pb-24 max-w-md mx-auto w-full">
+
+        <!-- TAB 1: STOK (GUDANG) -->
+        <div x-show="activeTab === 'stok'" class="p-4 space-y-4">
+            <!-- Summary Card -->
+            <div
+                class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center group hover:border-blue-300 transition-colors">
+                <div>
+                    <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Total Aset Barang</h3>
+                    <p class="text-xl font-bold text-gray-800" x-text="formatRupiah(totalAsset)"></p>
+                </div>
+                <div class="bg-blue-50 p-3 rounded-xl text-blue-600 group-hover:bg-blue-100 transition-colors">
+                    <i class="fa-solid fa-boxes-stacked text-xl"></i>
+                </div>
+            </div>
+
+            <!-- Search & Filter -->
+            <div class="sticky top-0 bg-gray-100 pt-2 pb-2 z-10">
+                <div class="relative">
+                    <i class="fa-solid fa-search absolute left-4 top-3.5 text-gray-400"></i>
+                    <input type="text" x-model="searchQuery" placeholder="Cari Nama Barang..."
+                        class="w-full pl-11 pr-4 py-3 rounded-xl border-none shadow-sm focus:ring-2 focus:ring-primary outline-none text-sm">
+                </div>
+            </div>
+
+            <!-- Item List (Table Style) -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <table class="w-full text-sm text-left">
+                    <thead class="text-xs text-gray-500 uppercase bg-gray-50 border-b">
+                        <tr>
+                            <th class="px-4 py-3">Barang</th>
+                            <th class="px-4 py-3 text-right">Stok</th>
+                            <th class="px-4 py-3 text-center">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        <template x-for="item in filteredItems" :key="item.id">
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-4 py-3">
+                                    <div class="font-bold text-gray-800" x-text="item.name"></div>
+                                    <div class="text-[10px] text-gray-500 mt-0.5">
+                                        Beli: <span x-text="formatRupiah(item.buyPrice)"></span> |
+                                        Jual: <span class="text-primary font-bold"
+                                            x-text="formatRupiah(item.sellPrice)"></span>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3 text-right">
+                                    <span class="inline-block px-2.5 py-1 rounded-md font-bold text-xs"
+                                        :class="item.stock < 3 ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-gray-100 text-gray-700'"
+                                        x-text="item.stock"></span>
+                                </td>
+                                <td class="px-4 py-3 text-center flex justify-center gap-2">
+                                    <button @click="openStockModal(item)"
+                                        class="text-green-600 hover:text-green-800 w-8 h-8 rounded-full hover:bg-green-50 transition-colors tooltip"
+                                        title="Tambah Stok (Kulakan)">
+                                        <i class="fa-solid fa-plus-circle text-lg"></i>
+                                    </button>
+                                    <button @click="editItem(item)"
+                                        class="text-gray-400 hover:text-blue-600 w-8 h-8 rounded-full hover:bg-blue-50 transition-colors tooltip"
+                                        title="Edit Detail">
+                                        <i class="fa-solid fa-pen-to-square"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </template>
+                        <tr x-show="filteredItems.length === 0">
+                            <td colspan="3" class="p-8 text-center text-gray-400 text-sm">
+                                <i class="fa-solid fa-box-open text-2xl mb-2 opacity-30"></i>
+                                <p>Tidak ada barang ditemukan.</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- FAB Add Button -->
+            <button @click="openModal('add')"
+                class="fixed bottom-24 right-6 bg-blue-600 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center hover:bg-blue-700 transition active:scale-90 z-20">
+                <i class="fa-solid fa-plus text-xl"></i>
+            </button>
+        </div>
+
+
+        <!-- TAB 2: KASIR (TRANSAKSI) -->
+        <div x-show="activeTab === 'kasir'" class="p-4 space-y-4">
+
+            <div class="text-center mb-4">
+                <h2 class="text-lg font-bold text-gray-700">🛒 Kasir Penjualan</h2>
+                <p class="text-xs text-gray-500">Pilih barang untuk mencatat penjualan</p>
+            </div>
+
+            <!-- Search -->
+            <div class="relative">
+                <i class="fa-solid fa-search absolute left-4 top-3.5 text-gray-400"></i>
+                <input type="text" x-model="searchQuery" placeholder="Cari barang untuk dijual..."
+                    class="w-full pl-11 pr-4 py-3 rounded-xl border-none shadow-sm focus:ring-2 focus:ring-secondary outline-none text-sm">
+            </div>
+
+            <!-- Grid Items -->
+            <div class="grid grid-cols-2 gap-3">
+                <template x-for="item in filteredItems" :key="item.id">
+                    <button @click="openSellModal(item)"
+                        class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 text-left hover:border-secondary transition active:scale-95 group relative overflow-hidden flex flex-col justify-between min-h-[100px]"
+                        :disabled="item.stock <= 0">
+
+                        <div x-show="item.stock <= 0"
+                            class="absolute inset-0 bg-gray-50/90 flex items-center justify-center z-10 backdrop-blur-[1px]">
+                            <span
+                                class="text-[10px] font-bold text-red-500 border border-red-200 bg-red-50 px-2 py-1 rounded-full uppercase tracking-wider">Stok
+                                Habis</span>
+                        </div>
+
+                        <h4 class="font-bold text-gray-700 mb-1 leading-snug line-clamp-2 text-sm" x-text="item.name">
+                        </h4>
+
+                        <div class="mt-2 pt-2 border-t border-gray-100 flex justify-between items-end w-full">
+                            <span class="text-secondary font-bold text-sm" x-text="formatRupiah(item.sellPrice)"></span>
+                            <span class="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 font-medium">Sisa:
+                                <span x-text="item.stock"></span></span>
+                        </div>
+                    </button>
+                </template>
+            </div>
+        </div>
+
+
+        <!-- TAB 3: LAPORAN -->
+        <div x-show="activeTab === 'laporan'" class="p-4 space-y-6">
+
+            <!-- Date Filter -->
+            <div class="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+                <span class="text-xs font-bold text-gray-500 uppercase">Periode:</span>
+                <input type="month" x-model="dateFilter"
+                    class="text-sm font-bold text-gray-800 outline-none bg-transparent text-right">
+            </div>
+
+            <!-- Daily Stats -->
+            <div class="grid grid-cols-3 gap-2">
+                <!-- Omzet (Money In) -->
+                <div class="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+                    <p class="text-[9px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Pemasukan (Omzet)
+                    </p>
+                    <h3 class="font-bold text-sm text-gray-800" x-text="formatRupiah(filteredRevenue)"></h3>
+                </div>
+
+                <!-- Belanja (Money Out) -->
+                <div class="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+                    <p class="text-[9px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Pengeluaran
+                        (Belanja)</p>
+                    <h3 class="font-bold text-sm text-red-600" x-text="formatRupiah(filteredExpense)"></h3>
+                </div>
+
+                <!-- Profit (Laba) -->
+                <div
+                    class="bg-gradient-to-br from-green-500 to-emerald-600 p-3 rounded-xl text-white shadow-lg flex flex-col justify-between">
+                    <p class="text-[9px] text-green-100 uppercase tracking-wider font-semibold mb-1">Profit (Laba)</p>
+                    <h3 class="font-bold text-sm" x-text="formatRupiah(filteredProfit)"></h3>
+                </div>
+            </div>
+
+            <!-- ANALYTICS WIDGETS -->
+            <div class="grid grid-cols-2 gap-3">
+                <!-- Best Sellers -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
+                    <h3 class="font-bold text-gray-800 text-[10px] uppercase mb-2 flex items-center gap-1.5">
+                        <i class="fa-solid fa-fire text-orange-500"></i> Paling Laris
+                    </h3>
+                    <div class="space-y-2">
+                        <template x-for="(item, index) in bestSellers.slice(0, 3)" :key="index">
+                            <div class="flex justify-between items-center text-xs">
+                                <div class="flex items-center gap-2 overflow-hidden">
+                                    <span
+                                        class="w-4 h-4 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                                        x-text="index + 1"></span>
+                                    <span class="text-gray-700 font-medium truncate" x-text="item.name"></span>
+                                </div>
+                                <span class="font-bold text-gray-900 flex-shrink-0"><span x-text="item.qty"></span>
+                                    <span class="text-[9px] text-gray-400 font-normal">top</span></span>
+                            </div>
+                        </template>
+                        <div x-show="bestSellers.length === 0" class="text-center text-[10px] text-gray-400 py-2">Belum
+                            ada data.</div>
+                    </div>
+                </div>
+
+                <!-- Worst Sellers (Dead Stock) -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
+                    <h3 class="font-bold text-gray-800 text-[10px] uppercase mb-2 flex items-center gap-1.5">
+                        <i class="fa-solid fa-snowflake text-blue-500"></i> Kurang Laku
+                    </h3>
+                    <div class="space-y-2">
+                        <template x-for="(item, index) in worstSellers" :key="index">
+                            <div class="flex justify-between items-center text-xs">
+                                <div class="flex items-center gap-2 overflow-hidden">
+                                    <span
+                                        class="w-4 h-4 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                                        x-text="index + 1"></span>
+                                    <span class="text-gray-700 font-medium truncate" x-text="item.name"></span>
+                                </div>
+                                <span class="font-bold text-gray-500 flex-shrink-0"><span x-text="item.sales"></span>
+                                    <span class="text-[9px] text-gray-400 font-normal">jual</span></span>
+                            </div>
+                        </template>
+                        <div x-show="worstSellers.length === 0" class="text-center text-[10px] text-gray-400 py-2">Stok
+                            aman.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transaction Table -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="px-4 py-3 border-b bg-gray-50 flex justify-between items-center">
+                    <h3 class="font-bold text-gray-700 text-sm"><i class="fa-solid fa-list-check mr-2"></i>Rincian
+                        Penjualan</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs text-gray-500 uppercase bg-gray-50 border-b">
+                            <tr>
+                                <th class="px-4 py-3 whitespace-nowrap">Waktu</th>
+                                <th class="px-4 py-3 whitespace-nowrap">Barang</th>
+                                <th class="px-4 py-3 text-right whitespace-nowrap">Info</th>
+                                <th class="px-4 py-3 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <template x-for="log in salesLogs.slice(0, 15)" :key="log.id">
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-4 py-3 text-xs whitespace-nowrap">
+                                        <div x-text="formatTime(log.timestamp)"></div>
+                                        <div class="text-[10px] text-gray-400" x-text="formatDateShort(log.timestamp)">
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <div class="font-medium text-gray-800 line-clamp-1" x-text="log.itemName"></div>
+                                        <div class="text-[10px] text-gray-400"><span x-text="log.qty"></span> x <span
+                                                x-text="formatRupiah(log.price)"></span></div>
+                                    </td>
+                                    <td class="px-4 py-3 text-right">
+                                        <div class="font-bold text-gray-700 text-xs"
+                                            x-text="formatRupiah(log.qty * log.price)"></div>
+                                        <div class="text-[10px] text-green-600 font-medium">Untung: <span
+                                                x-text="formatRupiah((log.price - log.buyPrice) * log.qty)"></span>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-center flex justify-center gap-2">
+                                        <button @click="sendWhatsApp(log)"
+                                            class="text-green-500 hover:text-green-700 w-8 h-8 rounded-full hover:bg-green-50 flex items-center justify-center transition-colors tooltip"
+                                            title="Kirim WA">
+                                            <i class="fa-brands fa-whatsapp text-lg"></i>
+                                        </button>
+                                        <button @click="deleteLog(log)"
+                                            class="text-red-400 hover:text-red-600 w-8 h-8 rounded-full hover:bg-red-50 flex items-center justify-center transition-colors tooltip"
+                                            title="Hapus / Undo">
+                                            <i class="fa-solid fa-trash text-sm"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </template>
+                            <tr x-show="salesLogs.length === 0">
+                                <td colspan="4" class="p-8 text-center text-gray-400 text-xs">
+                                    Belum ada data penjualan.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav
+        class="bg-white border-t border-gray-200 flex justify-around items-center h-20 pb-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] sticky bottom-0 z-30 max-w-md mx-auto w-full text-gray-400 font-medium text-[10px]">
+
+        <button @click="activeTab = 'stok'; searchQuery = ''"
+            class="flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors relative"
+            :class="activeTab === 'stok' ? 'text-blue-600' : 'hover:text-gray-600'">
+            <div class="text-xl mb-0.5"><i class="fa-solid fa-box"></i></div>
+            <span>STOK</span>
+            <div x-show="activeTab === 'stok'" class="absolute top-0 w-12 h-1 bg-blue-600 rounded-b-full"></div>
+        </button>
+
+        <button @click="activeTab = 'kasir'; searchQuery = ''"
+            class="flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors relative"
+            :class="activeTab === 'kasir' ? 'text-secondary' : 'hover:text-gray-600'">
+            <div class="text-2xl mb-0.5 transform -translate-y-1"><i class="fa-solid fa-cash-register"></i></div>
+            <span class="text-xs font-bold">KASIR</span>
+            <div x-show="activeTab === 'kasir'" class="absolute top-0 w-12 h-1 bg-secondary rounded-b-full"></div>
+        </button>
+
+        <button @click="activeTab = 'laporan'; searchQuery = ''"
+            class="flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors relative"
+            :class="activeTab === 'laporan' ? 'text-primary' : 'hover:text-gray-600'">
+            <div class="text-xl mb-0.5"><i class="fa-solid fa-chart-pie"></i></div>
+            <span>LAPORAN</span>
+            <div x-show="activeTab === 'laporan'" class="absolute top-0 w-12 h-1 bg-primary rounded-b-full"></div>
+        </button>
+
+    </nav>
+
+
+    <!-- MODALS -->
+
+    <!-- Add/Edit Item Modal -->
+    <div x-show="isModalOpen"
+        class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+        style="display: none;" x-transition.opacity>
+        <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl transform transition-all"
+            @click.away="closeModal()" x-transition.scale>
+            <h2 class="text-xl font-bold mb-4" x-text="editMode ? 'Edit Barang' : 'Tambah Stok Baru'"></h2>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-1">Nama Barang</label>
+                    <input type="text" x-model="form.name"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-1">Harga Beli (Kulak)</label>
+                        <input type="number" x-model.number="form.buyPrice"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-1">Harga Jual</label>
+                        <input type="number" x-model.number="form.sellPrice"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-1">Stok Saat Ini (Adjustment)</label>
+                    <input type="number" x-model.number="form.stock"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none font-bold">
+                </div>
+            </div>
+
+            <div class="mt-6 flex gap-2">
+                <button @click="closeModal()"
+                    class="flex-1 px-4 py-3 bg-gray-100 rounded-xl text-gray-600 font-bold text-sm hover:bg-gray-200 transaction-colors">Batal</button>
+                <button @click="saveItem()"
+                    class="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 shadow-lg shadow-blue-200 transaction-colors">Simpan</button>
+            </div>
+            <div x-show="editMode" class="mt-4 text-center">
+                <button @click="deleteItem()" class="text-red-400 text-xs hover:text-red-600 hover:underline">Hapus
+                    Permanen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stock Log Modal (For Adding Stock) -->
+    <div x-show="isStockModalOpen"
+        class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+        style="display: none;" x-transition.opacity>
+        <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl transform transition-all"
+            @click.away="isStockModalOpen=false" x-transition.scale>
+            <div class="text-center mb-4">
+                <div
+                    class="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-2 text-xl">
+                    <i class="fa-solid fa-boxes-stacked"></i>
+                </div>
+                <h2 class="text-lg font-bold text-gray-800">Barang Masuk (Kulakan)</h2>
+                <p class="text-sm text-gray-500 font-medium" x-text="stockForm.itemName"></p>
+            </div>
+
+            <div class="space-y-4">
+                <!-- Quantity Input -->
+                <div class="flex items-center justify-center gap-4">
+                    <button @click="stockForm.qty = Math.max(1, stockForm.qty - 1)"
+                        class="w-10 h-10 rounded-full bg-gray-100 text-gray-600 font-bold hover:bg-gray-200"><i
+                            class="fa-solid fa-minus"></i></button>
+                    <div class="text-center w-24">
+                        <label class="block text-[10px] text-gray-400 mb-1">Jumlah Masuk</label>
+                        <input type="number" x-model.number="stockForm.qty"
+                            class="w-full text-center text-3xl font-bold outline-none border-b-2 border-green-500 py-1 bg-transparent">
+                    </div>
+                    <button @click="stockForm.qty = stockForm.qty + 1"
+                        class="w-10 h-10 rounded-full bg-gray-100 text-gray-600 font-bold hover:bg-gray-200"><i
+                            class="fa-solid fa-plus"></i></button>
+                </div>
+
+                <!-- Price Inputs (Optional Update) -->
+                <div class="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                    <p class="text-[10px] text-gray-500 mb-2 font-bold uppercase tracking-wide">Update Harga (Opsional)
+                    </p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[10px] text-gray-500 mb-1">Harga Beli Baru</label>
+                            <input type="number" x-model.number="stockForm.buyPrice"
+                                class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:border-green-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-gray-500 mb-1">Harga Jual Baru</label>
+                            <input type="number" x-model.number="stockForm.sellPrice"
+                                class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:border-green-500 outline-none">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button @click="saveStock()"
+                class="w-full mt-6 py-3 rounded-xl font-bold text-white shadow-lg bg-green-600 hover:bg-green-700 active:scale-95 transition-all">
+                <i class="fa-solid fa-check mr-2"></i> SIMPAN STOK
+            </button>
+            <button @click="isStockModalOpen=false"
+                class="w-full mt-2 py-2 text-gray-400 hover:text-gray-600 text-xs font-bold">
+                Batal
+            </button>
+        </div>
+    </div>
+
+    <!-- Sell Modal (Kasir) -->
+    <div x-show="isSellModalOpen"
+        class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+        style="display: none;" x-transition.opacity>
+        <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl transform transition-all"
+            @click.away="closeSellModal()" x-transition.scale>
+            <div class="text-center mb-6">
+                <h2 class="text-xl font-bold text-gray-800" x-text="sellForm.itemName"></h2>
+                <p class="text-secondary font-bold text-lg" x-text="formatRupiah(sellForm.price)"></p>
+                <p class="text-xs text-gray-400 mt-1">Stok Tersedia: <span x-text="sellForm.maxStock"></span></p>
+            </div>
+
+            <div class="flex items-center justify-center gap-6 mb-8">
+                <button @click="sellForm.qty = Math.max(1, sellForm.qty - 1)"
+                    class="w-12 h-12 rounded-full bg-gray-100 text-gray-600 font-bold text-xl hover:bg-gray-200 transition-colors"><i
+                        class="fa-solid fa-minus"></i></button>
+                <div class="text-center">
+                    <input type="number" x-model.number="sellForm.qty"
+                        class="w-24 text-center text-4xl font-bold outline-none border-b-2 border-secondary py-1 text-gray-800 bg-transparent">
+                    <p class="text-[10px] text-gray-400 mt-1">Jumlah Beli</p>
+                </div>
+                <button @click="sellForm.qty = Math.min(sellForm.maxStock, sellForm.qty + 1)"
+                    class="w-12 h-12 rounded-full bg-gray-100 text-gray-600 font-bold text-xl hover:bg-gray-200 transition-colors"><i
+                        class="fa-solid fa-plus"></i></button>
+            </div>
+
+            <div class="bg-orange-50 p-3 rounded-xl mb-6 flex justify-between items-center border border-orange-100">
+                <span class="text-xs text-orange-600 font-bold uppercase">Total Bayar</span>
+                <span class="font-bold text-xl text-orange-700"
+                    x-text="formatRupiah(sellForm.price * sellForm.qty)"></span>
+            </div>
+
+            <button @click="confirmSale()"
+                class="w-full py-4 rounded-xl font-bold text-white shadow-lg bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 active:scale-95 transition-all">
+                <i class="fa-solid fa-check mr-2"></i> TERIMA UANG
+            </button>
+        </div>
+    </div>
+
+    <!-- Settings & Backup Modal -->
+    <div x-show="isSettingsModalOpen"
+        class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+        style="display: none;" x-transition.opacity>
+        <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl transform transition-all"
+            @click.away="isSettingsModalOpen = false" x-transition.scale>
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold text-gray-800">Pengaturan</h2>
+                <button @click="isSettingsModalOpen = false" class="text-gray-400 hover:text-gray-600"><i
+                        class="fa-solid fa-times"></i></button>
+            </div>
+
+            <div class="space-y-4">
+                <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                    <h3 class="font-bold text-blue-800 text-sm mb-1"><i class="fa-solid fa-floppy-disk mr-2"></i>Amankan
+                        Data</h3>
+                    <p class="text-xs text-blue-600 mb-3">Download data secara berkala agar tidak hilang saat ganti HP.
+                    </p>
+                    <button @click="downloadBackup()"
+                        class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors">
+                        Download Backup (.json)
+                    </button>
+                </div>
+
+                <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                    <h3 class="font-bold text-gray-700 text-sm mb-1"><i class="fa-solid fa-file-import mr-2"></i>Restore
+                        Data</h3>
+                    <p class="text-xs text-gray-500 mb-3">Kembalikan data dari file backup yang sudah didownload.</p>
+                    <input type="file" x-ref="fileInput" @change="restoreBackup($event)" class="hidden">
+                    <button @click="$refs.fileInput.click()"
+                        class="w-full py-2 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-lg text-xs font-bold transition-colors">
+                        Pilih File Backup
+                    </button>
+                </div>
+
+                <div class="bg-green-50 p-4 rounded-xl border border-green-100">
+                    <h3 class="font-bold text-green-800 text-sm mb-1"><i
+                            class="fa-brands fa-google-drive mr-2"></i>Google Sheets Sync</h3>
+                    <p class="text-xs text-green-700 mb-2">Simpan data ke Google Sheets secara Online.</p>
+                    <input type="text" x-model="googleScriptUrl" placeholder="Tempel URL Google Apps Script disini..."
+                        class="w-full border border-green-200 rounded px-2 py-1.5 text-xs mb-2 focus:ring-1 focus:ring-green-500 outline-none">
+                    <button @click="syncToGoogle()"
+                        class="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-rotate"></i> Sync Sekarang
+                    </button>
+                </div>
+
+                <div class="pt-4 border-t border-gray-100">
+                    <button @click="clearLogs()" class="w-full text-red-500 text-xs hover:text-red-700 font-bold">
+                        <i class="fa-solid fa-trash mr-1"></i> Hapus Riwayat Transaksi
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        function app() {
+            return {
+                activeTab: 'laporan', // Default to Laporan to see widgets
+                items: JSON.parse(localStorage.getItem('warung_items') || '[]'),
+                logs: JSON.parse(localStorage.getItem('warung_logs') || '[]'),
+                googleScriptUrl: localStorage.getItem('warung_gscript_url') || '',
+                searchQuery: '',
+                dateFilter: new Date().toISOString().slice(0, 7), // Default: YYYY-MM
+
+                // Modal States
+                isModalOpen: false,
+                isSellModalOpen: false,
+                isSettingsModalOpen: false,
+                editMode: false,
+
+                // Forms
+                form: { id: null, name: '', buyPrice: 0, sellPrice: 0, stock: 0 },
+                stockForm: { itemId: null, itemName: '', currentStock: 0, qty: 1, buyPrice: 0, sellPrice: 0 },
+                sellForm: { itemId: null, itemName: '', price: 0, buyPrice: 0, qty: 1, maxStock: 0 },
+
+                get currentDate() {
+                    return new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                },
+
+                get filteredItems() {
+                    const q = this.searchQuery.toLowerCase();
+                    return this.items.filter(i => i.name.toLowerCase().includes(q));
+                },
+
+                get salesLogs() {
+                    // Filter logs for sales (type 'out')
+                    return this.logs.filter(l => l.type === 'out');
+                },
+
+                get filteredRevenue() {
+                    return this.logs
+                        .filter(l => l.type === 'out' && l.timestamp.startsWith(this.dateFilter))
+                        .reduce((sum, l) => sum + (l.qty * l.price), 0);
+                },
+
+                get filteredProfit() {
+                    return this.logs
+                        .filter(l => l.type === 'out' && l.timestamp.startsWith(this.dateFilter))
+                        .reduce((sum, l) => sum + (l.qty * (l.price - l.buyPrice)), 0);
+                },
+
+                get filteredExpense() {
+                    return this.logs
+                        .filter(l => l.type === 'in' && l.timestamp.startsWith(this.dateFilter))
+                        .reduce((sum, l) => sum + (l.qty * l.buyPrice), 0);
+                },
+
+                get totalAsset() {
+                    return this.items.reduce((sum, item) => sum + (item.buyPrice * item.stock), 0);
+                },
+
+                get todayRevenue() {
+                    const today = new Date().toISOString().split('T')[0];
+                    return this.logs
+                        .filter(l => l.type === 'out' && l.timestamp.startsWith(today))
+                        .reduce((sum, l) => sum + (l.qty * l.price), 0);
+                },
+
+                get todayProfit() {
+                    const today = new Date().toISOString().split('T')[0];
+                    return this.logs
+                        .filter(l => l.type === 'out' && l.timestamp.startsWith(today))
+                        .reduce((sum, l) => sum + (l.qty * (l.price - l.buyPrice)), 0);
+                },
+
+                get bestSellers() {
+                    const salesMap = {};
+                    this.logs
+                        .filter(l => l.type === 'out')
+                        .forEach(l => {
+                            if (!salesMap[l.itemId]) salesMap[l.itemId] = { name: l.itemName, qty: 0 };
+                            salesMap[l.itemId].qty += l.qty;
+                        });
+
+                    return Object.values(salesMap)
+                        .sort((a, b) => b.qty - a.qty);
+                },
+
+                get worstSellers() {
+                    // 1. Calculate sales per item
+                    const salesMap = {};
+                    this.logs
+                        .filter(l => l.type === 'out')
+                        .forEach(l => {
+                            if (!salesMap[l.itemId]) salesMap[l.itemId] = 0;
+                            salesMap[l.itemId] += l.qty;
+                        });
+
+                    // 2. Map all items to include those with 0 sales
+                    return this.items
+                        .map(item => ({
+                            name: item.name,
+                            stock: item.stock,
+                            sales: salesMap[item.id] || 0
+                        }))
+                        // 3. Filter: Only show active items (stock > 0) to highlight "Dead Money"
+                        .filter(i => i.stock > 0)
+                        .sort((a, b) => a.sales - b.sales) // Sort Ascending (Lowest Sales First)
+                        .slice(0, 3);
+                },
+
+                // UTILS
+                formatRupiah(value) {
+                    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value);
+                },
+                formatTime(iso) {
+                    return new Date(iso).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                },
+                formatDateShort(iso) {
+                    return new Date(iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+                },
+
+                // ITEM CRUD
+                openModal(mode, item = null) {
+                    this.isModalOpen = true;
+                    if (mode === 'edit' && item) {
+                        this.editMode = true;
+                        this.form = { ...item };
+                    } else {
+                        this.editMode = false;
+                        this.form = { id: null, name: '', buyPrice: '', sellPrice: '', stock: '' };
+                    }
+                },
+                closeModal() { this.isModalOpen = false; },
+
+                saveItem() {
+                    if (!this.form.name) return alert("Nama wajib diisi!");
+                    const data = {
+                        ...this.form,
+                        id: this.form.id || Date.now(),
+                        buyPrice: Number(this.form.buyPrice),
+                        sellPrice: Number(this.form.sellPrice),
+                        stock: Number(this.form.stock)
+                    };
+
+                    if (this.editMode) {
+                        const idx = this.items.findIndex(i => i.id === data.id);
+                        if (idx !== -1) this.items[idx] = data;
+                    } else {
+                        this.items.push(data);
+                    }
+                    this.saveToStorage();
+                    this.closeModal();
+                },
+
+                deleteItem() {
+                    if (confirm("Hapus barang ini?")) {
+                        this.items = this.items.filter(i => i.id !== this.form.id);
+                        this.saveToStorage();
+                        this.closeModal();
+                    }
+                },
+
+                editItem(item) { this.openModal('edit', item); },
+
+                // SALES FLOW
+                openSellModal(item) {
+                    this.sellForm = {
+                        itemId: item.id,
+                        itemName: item.name,
+                        price: item.sellPrice,
+                        buyPrice: item.buyPrice,
+                        qty: 1,
+                        maxStock: item.stock
+                    };
+                    this.isSellModalOpen = true;
+                },
+                closeSellModal() { this.isSellModalOpen = false; },
+
+                confirmSale() {
+                    const { itemId, qty, price, buyPrice, itemName } = this.sellForm;
+                    const itemIdx = this.items.findIndex(i => i.id === itemId);
+
+                    if (itemIdx === -1) return;
+                    if (this.items[itemIdx].stock < qty) return alert("Stok tidak cukup!");
+
+                    // 1. Deduct Stock
+                    this.items[itemIdx].stock -= qty;
+
+                    // 2. Add Log
+                    const log = {
+                        id: Date.now(),
+                        type: 'out',
+                        itemId, itemName, qty, price, buyPrice,
+                        timestamp: new Date().toISOString()
+                    };
+                    this.logs.unshift(log);
+
+                    this.saveToStorage();
+                    this.closeSellModal();
+
+                    // Optional: Ask for receipt
+                    // if(confirm("Kirim Struk WA?")) this.sendWhatsApp(log);
+                },
+                saveStock() {
+                    const { itemId, qty, buyPrice, sellPrice } = this.stockForm;
+                    const itemIdx = this.items.findIndex(i => i.id === itemId);
+                    if (itemIdx === -1) return;
+
+                    const incomingQty = Number(qty);
+                    const incomingBuyPrice = Number(buyPrice); // Harga kulak BATCH INI
+                    const newSellPrice = Number(sellPrice);
+
+                    // 1. Calculate Weighted Average Cost (Metode Rata-rata)
+                    // Rumus: (Total Nilai Lama + Total Nilai Baru) / Total Stok Baru
+                    const currentStock = Math.max(0, this.items[itemIdx].stock); // Abaikan minus utk perhitungan aset
+                    const currentBuyPrice = this.items[itemIdx].buyPrice;
+
+                    const totalValueOld = currentStock * currentBuyPrice;
+                    const totalValueNew = incomingQty * incomingBuyPrice;
+                    const totalQty = currentStock + incomingQty;
+
+                    let weightedAvgPrice = incomingBuyPrice; // Default jika stok awal 0
+                    if (totalQty > 0) {
+                        weightedAvgPrice = (totalValueOld + totalValueNew) / totalQty;
+                    }
+
+                    // 2. Update Master Data
+                    this.items[itemIdx].stock += incomingQty;
+                    this.items[itemIdx].buyPrice = Math.round(weightedAvgPrice); // Simpan rata-rata sebagai harga modal baru
+                    this.items[itemIdx].sellPrice = newSellPrice;
+
+                    // 3. Add Log (IN)
+                    // Di log, kita catat harga REAL batch ini (bukan rata-rata) agar history belanja akurat
+                    const log = {
+                        id: Date.now(),
+                        type: 'in', // IN
+                        itemId,
+                        itemName: this.items[itemIdx].name,
+                        qty: incomingQty,
+                        price: incomingBuyPrice, // Catat harga beli batch ini (untuk laporan pengeluaran)
+                        buyPrice: incomingBuyPrice, // Sama, untuk konsistensi data
+                        timestamp: new Date().toISOString()
+                    };
+                    this.logs.unshift(log);
+
+                    this.saveToStorage();
+                    this.isStockModalOpen = false;
+                    alert(`Stok ditambahkan!\nHarga Modal (Rata-rata) sekarang: ${this.formatRupiah(this.items[itemIdx].buyPrice)}`);
+                },
+
+                // NEW FEATURES
+                sendWhatsApp(log) {
+                    const text = `*WARUNG SYIFA*%0A${this.currentDate}%0A%0AItem: ${log.itemName}%0AJumlah: ${log.qty}%0ATotal: ${this.formatRupiah(log.qty * log.price)}%0A%0ATerima kasih sudah berbelanja! 🙏`;
+                    window.open(`https://wa.me/?text=${text}`, '_blank');
+                },
+
+                downloadBackup() {
+                    const data = {
+                        items: this.items,
+                        logs: this.logs,
+                        backupDate: new Date().toISOString()
+                    };
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `WarungSyifa_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                },
+
+                restoreBackup(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const data = JSON.parse(e.target.result);
+                            if (data.items && data.logs) {
+                                if (confirm(`Restore data dari tanggal ${data.backupDate || 'Unknown'}? Data sekarang akan ditimpa.`)) {
+                                    this.items = data.items;
+                                    this.logs = data.logs;
+                                    this.saveToStorage();
+                                    alert("Berhasil restore data!");
+                                    this.isSettingsModalOpen = false;
+                                }
+                            } else {
+                                alert("Format file salah!");
+                            }
+                        } catch (err) {
+                            alert("Gagal membaca file!");
+                        }
+                    };
+                    reader.readAsText(file);
+                },
+
+                clearLogs() {
+                    if (confirm("Hapus semua riwayat transaksi? Data tidak bisa dikembalikan.")) {
+                        this.logs = [];
+                        this.saveToStorage();
+                        this.isSettingsModalOpen = false;
+                    }
+                },
+
+                deleteLog(log) {
+                    if (!confirm(`Hapus transaksi ini?\n${log.itemName} (${log.qty})`)) return;
+
+                    // 1. Restore Stock if it was a Sale (OUT)
+                    if (log.type === 'out') {
+                        const itemIdx = this.items.findIndex(i => i.id === log.itemId);
+                        if (itemIdx !== -1) {
+                            this.items[itemIdx].stock += log.qty; // Return items to stock
+                        }
+                    }
+                    // Note: For 'in' logs, we maintain the stock as is to avoid confusion, 
+                    // or user can manually adjust stock. But usually Undo is for sales.
+
+                    // 2. Remove log
+                    this.logs = this.logs.filter(l => l.id !== log.id);
+                    this.saveToStorage();
+                    alert("Transaksi dihapus & stok dikembalikan!");
+                },
+
+                async syncToGoogle() {
+                    if (!this.googleScriptUrl) return alert("Mohon isi URL Google Apps Script di pengaturan!");
+
+                    const btn = document.activeElement;
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
+                    btn.disabled = true;
+
+                    try {
+                        const payload = {
+                            items: this.items,
+                            logs: this.logs,
+                            timestamp: new Date().toISOString()
+                        };
+
+                        // Use 'no-cors' mode if simply sending data, but usually we want response. 
+                        // Google Apps Script requires redirect handling which fetch handles automatically usually.
+                        // However, CORS is a common issue. We will use a workaround or standard POST.
+                        // Ideally, user sets Web App to "Anyone".
+
+                        await fetch(this.googleScriptUrl, {
+                            method: 'POST',
+                            mode: 'no-cors', // Important for simple GAS triggers without CORS headaches
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+
+                        alert("Data terkirim ke Google Sheets! (Cek Spreadsheet anda)");
+                        localStorage.setItem('warung_gscript_url', this.googleScriptUrl);
+                    } catch (err) {
+                        alert("Gagal sinkronisasi: " + err.message);
+                    } finally {
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                    }
+                },
+
+                saveToStorage() {
+                    localStorage.setItem('warung_items', JSON.stringify(this.items));
+                    localStorage.setItem('warung_logs', JSON.stringify(this.logs));
+                    localStorage.setItem('warung_gscript_url', this.googleScriptUrl);
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>
