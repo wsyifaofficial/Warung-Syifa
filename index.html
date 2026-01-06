@@ -68,6 +68,39 @@
                 </div>
             </div>
 
+            <!-- HELP GUIDE BOX -->
+            <div x-data="{ showHelp: true }" x-show="showHelp"
+                class="mb-4 bg-white p-4 rounded-xl border border-blue-100 shadow-sm relative">
+                <button @click="showHelp = false" class="absolute top-2 right-2 text-gray-400 hover:text-gray-600">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+                <h4 class="font-bold text-blue-800 text-xs mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-info"></i> PETUNJUK GUDANG
+                </h4>
+                <div class="grid grid-cols-2 gap-4 text-xs">
+                    <div class="flex items-start gap-2">
+                        <div
+                            class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center shrink-0 text-[10px] shadow-sm">
+                            <i class="fa-solid fa-plus"></i>
+                        </div>
+                        <div>
+                            <span class="font-bold text-gray-700">Barang Baru</span>
+                            <p class="text-gray-500 leading-tight">Untuk barang yang belum pernah dijual.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <div
+                            class="w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center shrink-0 text-[10px]">
+                            <i class="fa-solid fa-boxes-stacked"></i>
+                        </div>
+                        <div>
+                            <span class="font-bold text-gray-700">Kulakan</span>
+                            <p class="text-gray-500 leading-tight">Untuk tambah stok barang lama.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Search & Filter -->
             <div class="sticky top-0 bg-gray-100 pt-2 pb-2 z-10">
                 <div class="relative">
@@ -106,8 +139,8 @@
                                 <td class="px-4 py-3 text-center flex justify-center gap-2">
                                     <button @click="openStockModal(item)"
                                         class="text-green-600 hover:text-green-800 w-8 h-8 rounded-full hover:bg-green-50 transition-colors tooltip"
-                                        title="Tambah Stok (Kulakan)">
-                                        <i class="fa-solid fa-plus-circle text-lg"></i>
+                                        title="Kulakan (Tambah Stok Lama)">
+                                        <i class="fa-solid fa-boxes-stacked text-lg"></i>
                                     </button>
                                     <button @click="editItem(item)"
                                         class="text-gray-400 hover:text-blue-600 w-8 h-8 rounded-full hover:bg-blue-50 transition-colors tooltip"
@@ -449,25 +482,29 @@
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-500 mb-1">Nama Barang</label>
-                    <input type="text" x-model="form.name"
+                    <input type="text" x-model="tempItem.name"
                         class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-bold text-gray-500 mb-1">Harga Beli (Kulak)</label>
-                        <input type="number" x-model.number="form.buyPrice"
+                        <input type="number" x-model.number="tempItem.buyPrice"
                             class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-500 mb-1">Harga Jual</label>
-                        <input type="number" x-model.number="form.sellPrice"
+                        <input type="number" x-model.number="tempItem.sellPrice"
                             class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
                     </div>
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-500 mb-1">Stok Saat Ini (Adjustment)</label>
-                    <input type="number" x-model.number="form.stock"
-                        class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none font-bold">
+                    <input type="number" x-model.number="tempItem.stock" :disabled="editMode"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none font-bold disabled:bg-gray-100 disabled:text-gray-400">
+                    <p x-show="editMode" class="text-[10px] text-red-500 mt-1 leading-tight">
+                        <i class="fa-solid fa-lock mr-1"></i> Stok dikunci. Gunakan tombol <strong>Kardus
+                            (Kulakan)</strong> di tabel untuk tambah stok agar tercatat di laporan.
+                    </p>
                 </div>
             </div>
 
@@ -788,6 +825,7 @@
 
                 // Modal States
                 isModalOpen: false,
+                isStockModalOpen: false, // NEW: Added missing state
                 isSellModalOpen: false,
                 isSettingsModalOpen: false,
                 isReceiptModalOpen: false,
@@ -914,6 +952,19 @@
                     }
                 },
                 closeModal() { this.isModalOpen = false; },
+
+                // STOCK FLOW (Kulakan)
+                openStockModal(item) {
+                    this.stockForm = {
+                        itemId: item.id,
+                        itemName: item.name,
+                        currentStock: item.stock,
+                        qty: 1,
+                        buyPrice: item.buyPrice, // Pre-fill with current AVCO price
+                        sellPrice: item.sellPrice
+                    };
+                    this.isStockModalOpen = true;
+                },
 
                 saveItem() {
                     if (!this.tempItem.name) return alert("Nama wajib diisi!");
@@ -1068,10 +1119,10 @@
                 // AUDIO SYSTEM
                 initAudio() {
                     // Coin Sound (Short "Ka-Ching")
-                    this.audioCoin = new Audio("https://cdn.pixabay.com/audio/2021/08/04/audio_0625c1539c.mp3"); // Source: Pixabay Royalty Free
+                    this.audioCoin = new Audio("https://www.soundjay.com/misc/sounds/magic-chime-01.mp3");
 
                     // Printer Sound (Short "Dot Matrix / Fax")
-                    this.audioPrint = new Audio("https://cdn.pixabay.com/audio/2024/05/24/audio_7314757390.mp3"); // Source: Pixabay Royalty Free
+                    this.audioPrint = new Audio("https://www.soundjay.com/mechanical/sounds/mechanical-clonk-1.mp3");
 
                     // Preload
                     this.audioCoin.load();
