@@ -1,9 +1,17 @@
 
-// 1. Buka spreadsheet.google.com
-// 2. Extensions > Apps Script
-// 3. Paste kode ini, Simpan -> Deploy -> New Deployment -> Select type: Web app
-// 4. Execute as: Me, Who has access: Anyone
-// 5. Copy URL-nya ke Aplikasi Warung Syifa
+// PANDUAN CARA PASANG (DEPLOY) GOOGLE SHEETS SYNC:
+// 1. Buka https://spreadsheet.google.com dan buat sheet baru.
+// 2. Klik menu "Extensions" > "Apps Script".
+// 3. Hapus semua kode yang ada, lalu COPY & PASTE kode di bawah ini.
+// 4. Klik tombol "Deploy" (Warna Biru diatas) > "New deployment".
+// 5. Klik icon Roda Gigi (Select type) > pilih "Web app".
+// 6. Isi Description bebas (misal: "Warung Syifa v1").
+// 7. PENTING:
+//    - Execute as: "Me" (email anda)
+//    - Who has access: "Anyone" (Siapa saja)  <-- WAJIB INI AGAR BISA DISIMPAN DARI HP
+// 8. Klik "Deploy".
+// 9. Salin "Web App URL" yang muncul (akhiran /exec).
+// 10. Tempel URL tersebut di menu Pengaturan Aplikasi Warung Syifa.
 
 function doPost(e) {
     try {

@@ -320,6 +320,16 @@
             </div>
         </div>
 
+        <!-- Footer / Branding -->
+        <div class="py-8 text-center opacity-60 hover:opacity-100 transition-opacity duration-300">
+            <div class="flex items-center justify-center gap-1.5 mb-0.5">
+                <img src="logo_zensheet.png" alt="ZenSheet" class="w-4 h-4 object-contain opacity-70">
+                <span class="text-[10px] font-bold text-gray-400 font-mono tracking-wider">POWERED BY ZENSHEET</span>
+            </div>
+            <a href="https://zensheet.my.id" target="_blank"
+                class="text-[9px] text-gray-300 hover:text-blue-500 transition-colors">zensheet.my.id</a>
+        </div>
+
     </main>
 
     <!-- Bottom Navigation -->
@@ -564,7 +574,7 @@
                 activeTab: 'laporan', // Default to Laporan to see widgets
                 items: JSON.parse(localStorage.getItem('warung_items') || '[]'),
                 logs: JSON.parse(localStorage.getItem('warung_logs') || '[]'),
-                googleScriptUrl: localStorage.getItem('warung_gscript_url') || '',
+                googleScriptUrl: localStorage.getItem('warung_gscript_url') || 'https://script.google.com/macros/s/AKfycbyqBhBZsd9tzNZh34bCDnc_XsvjhO_sS9oYQUNK8R7Zo4Tg5s9lxm2R6J5A-YKw3R8e/exec',
                 searchQuery: '',
                 dateFilter: new Date().toISOString().slice(0, 7), // Default: YYYY-MM
 
