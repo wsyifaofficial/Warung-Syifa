@@ -51,25 +51,77 @@ function doPost(e) {
 
         if (data.logs && data.logs.length > 0) {
             // Sort log dari terlama ke terbaru biar rapi di sheet (optional)
-            // data.logs.reverse(); 
-
             const logsArr = data.logs.map(l => [
-                l.timestamp,
-                l.type === 'in' ? 'Masuk' : 'Keluar',
-                l.itemName,
-                l.qty,
-                l.price,
-                l.buyPrice,
-                l.qty * l.price
+                l.timestamp, l.type === 'in' ? 'Masuk' : 'Keluar', l.itemName, l.qty, l.price, l.buyPrice, l.qty * l.price
             ]);
             sheetLogs.getRange(2, 1, logsArr.length, 7).setValues(logsArr);
         }
 
-        return ContentService.createTextOutput(JSON.stringify({ result: "success", timestamp: new Date() }))
+        // 3. Simpan Data Hutang (Debts) - NEW
+        let sheetDebts = ss.getSheetByName("Buku Hutang");
+        if (!sheetDebts) {
+            sheetDebts = ss.insertSheet("Buku Hutang");
+            sheetDebts.appendRow(["ID", "Timestamp", "Peminjam", "Barang", "Qty", "Harga", "Modal", "Total", "Status"]);
+        }
+
+        if (sheetDebts.getLastRow() > 1) {
+            sheetDebts.getRange(2, 1, sheetDebts.getLastRow() - 1, 9).clearContent();
+        }
+
+        if (data.debts && data.debts.length > 0) {
+            const debtsArr = data.debts.map(d => [
+                d.id, d.timestamp, d.customerName, d.itemName, d.qty, d.price, d.buyPrice || 0, d.total, d.status
+            ]);
+            sheetDebts.getRange(2, 1, debtsArr.length, 9).setValues(debtsArr);
+        }
+
+        return ContentService.createTextOutput(JSON.stringify({ result: "success" }))
             .setMimeType(ContentService.MimeType.JSON);
 
     } catch (err) {
         return ContentService.createTextOutput(JSON.stringify({ result: "error", message: err.toString() }))
+            .setMimeType(ContentService.MimeType.JSON);
+    }
+}
+
+function doGet(e) {
+    try {
+        const ss = SpreadsheetApp.getActiveSpreadsheet();
+        const sheetItems = ss.getSheetByName("Master Barang");
+        const sheetLogs = ss.getSheetByName("Riwayat Transaksi");
+        const sheetDebts = ss.getSheetByName("Buku Hutang"); // NEW
+
+        let items = [];
+        let logs = [];
+        let debts = [];
+
+        // 1. Read Items
+        if (sheetItems && sheetItems.getLastRow() > 1) {
+            const data = sheetItems.getRange(2, 1, sheetItems.getLastRow() - 1, 5).getValues();
+            items = data.map(row => ({ id: row[0], name: row[1], buyPrice: row[2], sellPrice: row[3], stock: row[4] }));
+        }
+
+        // 2. Read Logs
+        if (sheetLogs && sheetLogs.getLastRow() > 1) {
+            const data = sheetLogs.getRange(2, 1, sheetLogs.getLastRow() - 1, 7).getValues();
+            logs = data.map(row => ({
+                timestamp: row[0], type: row[1] === 'Masuk' ? 'in' : 'out', itemName: row[2], qty: row[3], price: row[4], buyPrice: row[5]
+            })).map(l => ({ ...l, id: new Date(l.timestamp).getTime() }));
+        }
+
+        // 3. Read Debts - NEW
+        if (sheetDebts && sheetDebts.getLastRow() > 1) {
+            const data = sheetDebts.getRange(2, 1, sheetDebts.getLastRow() - 1, 9).getValues();
+            debts = data.map(row => ({
+                id: row[0], timestamp: row[1], customerName: row[2], itemName: row[3], qty: row[4], price: row[5], buyPrice: row[6], total: row[7], status: row[8]
+            }));
+        }
+
+        return ContentService.createTextOutput(JSON.stringify({ items, logs, debts }))
+            .setMimeType(ContentService.MimeType.JSON);
+
+    } catch (err) {
+        return ContentService.createTextOutput(JSON.stringify({ error: err.toString() }))
             .setMimeType(ContentService.MimeType.JSON);
     }
 }

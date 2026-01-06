@@ -8,6 +8,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -28,7 +30,7 @@
     </style>
 </head>
 
-<body class="bg-gray-100 text-gray-800 h-screen flex flex-col" x-data="app()" x-cloak>
+<body class="bg-gray-100 text-gray-800 h-screen flex flex-col" x-data="app()" x-init="initAudio()" x-cloak>
 
     <!-- Header -->
     <header class="bg-primary text-white shadow-lg sticky top-0 z-20">
@@ -175,6 +177,48 @@
             </div>
         </div>
 
+        <!-- HUTANG VIEW -->
+        <div x-show="activeTab === 'hutang'" class="space-y-4">
+            <!-- Header Summary -->
+            <div class="bg-red-600 text-white p-4 rounded-xl shadow-lg">
+                <div class="text-xs opacity-80 mb-1">Total Belum Dibayar</div>
+                <div class="text-2xl font-bold font-mono tracking-tight"
+                    x-text="formatRupiah(debts.reduce((sum, d) => sum + d.total, 0))"></div>
+                <div class="text-xs mt-2 bg-red-700/50 inline-block px-2 py-0.5 rounded">
+                    <span x-text="debts.length"></span> Transaksi Menggantung
+                </div>
+            </div>
+
+            <!-- Debt List -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div x-show="debts.length === 0" class="p-8 text-center text-gray-400">
+                    <i class="fa-solid fa-thumbs-up text-4xl mb-2 text-gray-200"></i>
+                    <p class="text-sm">Tidak ada yang ngutang!</p>
+                </div>
+
+                <template x-for="debt in debts.slice().reverse()" :key="debt.id">
+                    <div class="p-4 border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <div class="font-bold text-gray-800" x-text="debt.customerName"></div>
+                                <div class="text-xs text-gray-500">
+                                    <span x-text="formatDateShort(debt.timestamp)"></span> •
+                                    <span x-text="debt.itemName"></span> (<span x-text="debt.qty"></span>)
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-bold text-red-600" x-text="formatRupiah(debt.total)"></div>
+                                <div class="text-[10px] text-red-400 italic">Belum Lunas</div>
+                            </div>
+                        </div>
+                        <button @click="payDebt(debt.id)"
+                            class="w-full py-2 bg-green-100 text-green-700 rounded-lg text-xs font-bold hover:bg-green-200 transition-colors flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-money-bill-wave"></i> LUNASI SEKARANG
+                        </button>
+                    </div>
+                </template>
+            </div>
+        </div>
 
         <!-- TAB 3: LAPORAN -->
         <div x-show="activeTab === 'laporan'" class="p-4 space-y-6">
@@ -296,6 +340,11 @@
                                         </div>
                                     </td>
                                     <td class="px-4 py-3 text-center flex justify-center gap-2">
+                                        <button @click="openReceipt(log)"
+                                            class="text-gray-500 hover:text-gray-700 w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors tooltip"
+                                            title="Lihat Struk">
+                                            <i class="fa-solid fa-receipt text-lg"></i>
+                                        </button>
                                         <button @click="sendWhatsApp(log)"
                                             class="text-green-500 hover:text-green-700 w-8 h-8 rounded-full hover:bg-green-50 flex items-center justify-center transition-colors tooltip"
                                             title="Kirim WA">
@@ -320,17 +369,17 @@
             </div>
         </div>
 
-        <!-- Footer / Branding -->
-        <div class="py-8 text-center opacity-60 hover:opacity-100 transition-opacity duration-300">
-            <div class="flex items-center justify-center gap-1.5 mb-0.5">
-                <img src="logo_zensheet.png" alt="ZenSheet" class="w-4 h-4 object-contain opacity-70">
-                <span class="text-[10px] font-bold text-gray-400 font-mono tracking-wider">POWERED BY ZENSHEET</span>
-            </div>
-            <a href="https://zensheet.my.id" target="_blank"
-                class="text-[9px] text-gray-300 hover:text-blue-500 transition-colors">zensheet.my.id</a>
-        </div>
-
     </main>
+
+    <!-- Footer / Branding (Fixed/Sticky at bottom of content) -->
+    <div class="bg-gray-100 pb-2 text-center opacity-70 hover:opacity-100 transition-opacity duration-300">
+        <div class="flex items-center justify-center gap-1.5 mb-0.5">
+            <img src="logo_zensheet.png" alt="ZenSheet" class="w-4 h-4 object-contain opacity-70">
+            <span class="text-[10px] font-bold text-gray-400 font-mono tracking-wider">POWERED BY ZENSHEET</span>
+        </div>
+        <a href="https://zensheet.my.id" target="_blank"
+            class="text-[9px] text-gray-400 hover:text-blue-500 transition-colors">zensheet.my.id</a>
+    </div>
 
     <!-- Bottom Navigation -->
     <nav
@@ -350,6 +399,18 @@
             <div class="text-2xl mb-0.5 transform -translate-y-1"><i class="fa-solid fa-cash-register"></i></div>
             <span class="text-xs font-bold">KASIR</span>
             <div x-show="activeTab === 'kasir'" class="absolute top-0 w-12 h-1 bg-secondary rounded-b-full"></div>
+        </button>
+
+        <button @click="activeTab = 'hutang'"
+            class="flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors relative"
+            :class="activeTab === 'hutang' ? 'text-red-600' : 'hover:text-gray-600'">
+            <div class="text-xl mb-0.5 relative">
+                <i class="fa-solid fa-book-open"></i>
+                <span x-show="debts.length > 0"
+                    class="absolute -top-1 -right-2 w-2.5 h-2.5 bg-red-600 rounded-full border-2 border-white"></span>
+            </div>
+            <span>HUTANG</span>
+            <div x-show="activeTab === 'hutang'" class="absolute top-0 w-12 h-1 bg-red-600 rounded-b-full"></div>
         </button>
 
         <button @click="activeTab = 'laporan'; searchQuery = ''"
@@ -374,6 +435,18 @@
             <h2 class="text-xl font-bold mb-4" x-text="editMode ? 'Edit Barang' : 'Tambah Stok Baru'"></h2>
 
             <div class="space-y-4">
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2">Barcode / Kode Barang</label>
+                    <div class="flex gap-2">
+                        <input type="text" x-model="tempItem.barcode"
+                            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                            placeholder="Scan atau ketik manual...">
+                        <button @click="startScanner('input')"
+                            class="bg-gray-800 text-white px-3 rounded shadow hover:bg-black transition-colors">
+                            <i class="fa-solid fa-qrcode"></i>
+                        </button>
+                    </div>
+                </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-500 mb-1">Nama Barang</label>
                     <input type="text" x-model="form.name"
@@ -498,6 +571,21 @@
                         class="fa-solid fa-plus"></i></button>
             </div>
 
+            <!-- Debt Option (Kasbon) -->
+            <div class="mb-4 bg-red-50 p-3 rounded-lg border border-red-100">
+                <label class="flex items-center gap-2 cursor-pointer mb-2">
+                    <input type="checkbox" x-model="sellForm.isDebt"
+                        class="w-4 h-4 text-red-600 rounded focus:ring-red-500">
+                    <span class="text-sm font-bold text-red-700">Bayar Nanti (Kasbon/Hutang)</span>
+                </label>
+                <div x-show="sellForm.isDebt" x-transition>
+                    <label class="block text-xs text-red-600 mb-1">Nama Peminjam</label>
+                    <input type="text" x-model="sellForm.customerName"
+                        class="shadow appearance-none border border-red-200 rounded w-full py-2 px-3 text-gray-700 text-sm leading-tight focus:outline-none focus:ring-1 focus:ring-red-500"
+                        placeholder="Contoh: Pak Budi">
+                </div>
+            </div>
+
             <div class="bg-orange-50 p-3 rounded-xl mb-6 flex justify-between items-center border border-orange-100">
                 <span class="text-xs text-orange-600 font-bold uppercase">Total Bayar</span>
                 <span class="font-bold text-xl text-orange-700"
@@ -508,6 +596,109 @@
                 class="w-full py-4 rounded-xl font-bold text-white shadow-lg bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 active:scale-95 transition-all">
                 <i class="fa-solid fa-check mr-2"></i> TERIMA UANG
             </button>
+        </div>
+    </div>
+
+    <!-- Scanner Modal -->
+    <div x-show="isScannerOpen" class="fixed inset-0 bg-black/90 z-[60] flex flex-col items-center justify-center p-4"
+        style="display: none;" x-transition.opacity>
+
+        <div class="w-full max-w-sm bg-white rounded-2xl overflow-hidden relative">
+            <button @click="stopScanner()"
+                class="absolute top-4 right-4 z-10 bg-white/20 text-white rounded-full p-2 backdrop-blur-md">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+
+            <div class="p-4 bg-gray-900 text-white text-center">
+                <h3 class="font-bold text-lg"
+                    x-text="scanMode === 'input' ? 'Scan Barcode Barang' : 'Scan untuk Kasir'"></h3>
+                <p class="text-xs opacity-70">Arahkan kamera ke kode batang produk</p>
+            </div>
+
+            <div id="reader" class="w-full bg-black min-h-[300px]"></div>
+
+            <div class="p-4 bg-white text-center">
+                <p class="text-sm text-gray-500 animate-pulse">Mencari kamera...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Receipt Modal (Struk) -->
+    <div x-show="isReceiptModalOpen"
+        class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+        style="display: none;" x-transition.opacity>
+
+        <div class="w-full max-w-sm flex flex-col max-h-[90vh]">
+
+            <!-- Receipt Preview Area (To be captured) -->
+            <div id="receipt-preview" class="bg-white p-6 rounded-t-2xl shadow-2xl relative overflow-hidden">
+                <!-- Decorative jagged top -->
+                <div class="absolute top-0 left-0 right-0 h-4 bg-gray-800"
+                    style="clip-path: polygon(0% 0%, 5% 100%, 10% 0%, 15% 100%, 20% 0%, 25% 100%, 30% 0%, 35% 100%, 40% 0%, 45% 100%, 50% 0%, 55% 100%, 60% 0%, 65% 100%, 70% 0%, 75% 100%, 80% 0%, 85% 100%, 90% 0%, 95% 100%, 100% 0%);">
+                </div>
+
+                <div class="text-center mt-4 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800 tracking-wider">WARUNG SYIFA</h2>
+                    <p class="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Struk Pembelian Resmi</p>
+                </div>
+
+                <div class="space-y-4 font-mono text-sm">
+                    <div class="flex justify-between text-xs text-gray-500 border-b border-dashed border-gray-300 pb-2">
+                        <span x-text="formatDateShort(receiptData.timestamp)"></span>
+                        <span x-text="formatTime(receiptData.timestamp)"></span>
+                    </div>
+
+                    <div class="py-2">
+                        <div class="flex justify-between items-start font-bold text-gray-800 text-lg">
+                            <span x-text="receiptData.itemName"></span>
+                        </div>
+                        <div class="flex justify-between items-center text-gray-600 mt-1">
+                            <span><span x-text="receiptData.qty"></span> x <span
+                                    x-text="formatRupiah(receiptData.price)"></span></span>
+                            <span class="font-bold text-gray-800"
+                                x-text="formatRupiah(receiptData.qty * receiptData.price)"></span>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-dashed border-gray-300 pt-4 pb-2">
+                        <div class="flex justify-between items-center text-xl font-bold">
+                            <span>TOTAL</span>
+                            <span x-text="formatRupiah(receiptData.qty * receiptData.price)"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center mt-8 pt-4 border-t border-gray-100">
+                    <p class="text-xs text-gray-400 font-medium italic">"Terima Kasih Sudah Berbelanja"</p>
+                    <div class="flex items-center justify-center gap-1 mt-2 opacity-50">
+                        <img src="logo_zensheet.png" class="w-3 h-3 grayscale">
+                        <span class="text-[8px] font-bold text-gray-400">POWERED BY ZENSHEET</span>
+                    </div>
+                </div>
+
+                <!-- Decorative jagged bottom -->
+                <div class="absolute bottom-0 left-0 right-0 h-4 bg-white"
+                    style="clip-path: polygon(0% 100%, 5% 0%, 10% 100%, 15% 0%, 20% 100%, 25% 0%, 30% 100%, 35% 0%, 40% 100%, 45% 0%, 50% 100%, 55% 0%, 60% 100%, 65% 0%, 70% 100%, 75% 0%, 80% 100%, 85% 0%, 90% 100%, 95% 0%, 100% 100%);">
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="bg-gray-100 p-4 rounded-b-2xl border-t border-gray-200 space-y-2">
+                <button @click="downloadReceipt()"
+                    class="w-full py-3 bg-gray-800 text-white rounded-xl font-bold text-sm shadow-lg hover:bg-black transition-colors flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-camera"></i> Simpan Gambar
+                </button>
+                <div class="grid grid-cols-2 gap-2">
+                    <button @click="emailReceipt()"
+                        class="py-2.5 bg-white text-gray-700 border border-gray-300 rounded-xl font-bold text-xs hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-envelope"></i> Email
+                    </button>
+                    <button @click="isReceiptModalOpen = false"
+                        class="py-2.5 bg-transparent text-gray-500 rounded-xl font-bold text-xs hover:text-gray-700 transition-colors">
+                        Tutup
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -552,10 +743,26 @@
                     <p class="text-xs text-green-700 mb-2">Simpan data ke Google Sheets secara Online.</p>
                     <input type="text" x-model="googleScriptUrl" placeholder="Tempel URL Google Apps Script disini..."
                         class="w-full border border-green-200 rounded px-2 py-1.5 text-xs mb-2 focus:ring-1 focus:ring-green-500 outline-none">
-                    <button @click="syncToGoogle()"
-                        class="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-rotate"></i> Sync Sekarang
-                    </button>
+                    <div class="flex gap-2">
+                        <button @click="syncToGoogle()"
+                            class="flex-1 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex flex-col items-center justify-center gap-1">
+                            <i class="fa-solid fa-cloud-arrow-up text-sm"></i>
+                            <span>BACKUP</span>
+                            <span class="text-[9px] font-normal opacity-80">(HP &rarr; Cloud)</span>
+                        </button>
+                        <button @click="pullFromGoogle()"
+                            class="flex-1 py-2.5 bg-white border border-green-600 text-green-600 hover:bg-green-50 rounded-lg text-xs font-bold shadow-sm transition-colors flex flex-col items-center justify-center gap-1">
+                            <i class="fa-solid fa-cloud-arrow-down text-sm"></i>
+                            <span>RESTORE</span>
+                            <span class="text-[9px] font-normal opacity-80">(Cloud &rarr; HP)</span>
+                        </button>
+                    </div>
+                    <div class="flex justify-between px-1 mt-2">
+                        <p class="text-[9px] text-gray-400 text-center w-1/2 pr-1">Simpan data HP ini ke internet (Timpa
+                            Google Data).</p>
+                        <p class="text-[9px] text-gray-400 text-center w-1/2 pl-1">Ambil data internet ke HP ini (Timpa
+                            Data HP).</p>
+                    </div>
                 </div>
 
                 <div class="pt-4 border-t border-gray-100">
@@ -574,6 +781,7 @@
                 activeTab: 'laporan', // Default to Laporan to see widgets
                 items: JSON.parse(localStorage.getItem('warung_items') || '[]'),
                 logs: JSON.parse(localStorage.getItem('warung_logs') || '[]'),
+                debts: JSON.parse(localStorage.getItem('warung_debts') || '[]'), // NEW
                 googleScriptUrl: localStorage.getItem('warung_gscript_url') || 'https://script.google.com/macros/s/AKfycbyqBhBZsd9tzNZh34bCDnc_XsvjhO_sS9oYQUNK8R7Zo4Tg5s9lxm2R6J5A-YKw3R8e/exec',
                 searchQuery: '',
                 dateFilter: new Date().toISOString().slice(0, 7), // Default: YYYY-MM
@@ -582,12 +790,20 @@
                 isModalOpen: false,
                 isSellModalOpen: false,
                 isSettingsModalOpen: false,
+                isReceiptModalOpen: false,
+                receiptData: { itemName: '', qty: 0, price: 0, timestamp: '' },
                 editMode: false,
 
+                // Scanner
+                isScannerOpen: false,
+                scanner: null,
+                scanMode: 'input', // 'input' (register) or 'kiosk' (sell)
+                scanTargetItem: null, // for kiosk mode binding
+
                 // Forms
-                form: { id: null, name: '', buyPrice: 0, sellPrice: 0, stock: 0 },
+                tempItem: { id: '', name: '', buyPrice: '', sellPrice: '', stock: '', barcode: '' },
                 stockForm: { itemId: null, itemName: '', currentStock: 0, qty: 1, buyPrice: 0, sellPrice: 0 },
-                sellForm: { itemId: null, itemName: '', price: 0, buyPrice: 0, qty: 1, maxStock: 0 },
+                sellForm: { itemId: null, itemName: '', price: 0, buyPrice: 0, qty: 1, maxStock: 0, isDebt: false, customerName: '' }, // Updated for Debt
 
                 get currentDate() {
                     return new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -691,29 +907,32 @@
                     this.isModalOpen = true;
                     if (mode === 'edit' && item) {
                         this.editMode = true;
-                        this.form = { ...item };
+                        this.tempItem = { ...item };
                     } else {
                         this.editMode = false;
-                        this.form = { id: null, name: '', buyPrice: '', sellPrice: '', stock: '' };
+                        this.tempItem = { id: null, name: '', buyPrice: '', sellPrice: '', stock: '', barcode: '' };
                     }
                 },
                 closeModal() { this.isModalOpen = false; },
 
                 saveItem() {
-                    if (!this.form.name) return alert("Nama wajib diisi!");
-                    const data = {
-                        ...this.form,
-                        id: this.form.id || Date.now(),
-                        buyPrice: Number(this.form.buyPrice),
-                        sellPrice: Number(this.form.sellPrice),
-                        stock: Number(this.form.stock)
+                    if (!this.tempItem.name) return alert("Nama wajib diisi!");
+                    const item = {
+                        id: this.tempItem.id || Date.now(),
+                        name: this.tempItem.name,
+                        buyPrice: Number(this.tempItem.buyPrice),
+                        sellPrice: Number(this.tempItem.sellPrice),
+                        stock: Number(this.tempItem.stock),
+                        barcode: this.tempItem.barcode || ''
                     };
 
                     if (this.editMode) {
-                        const idx = this.items.findIndex(i => i.id === data.id);
-                        if (idx !== -1) this.items[idx] = data;
+                        const index = this.items.findIndex(i => i.id === item.id);
+                        if (index !== -1) {
+                            this.items.splice(index, 1, item);
+                        }
                     } else {
-                        this.items.push(data);
+                        this.items.push(item);
                     }
                     this.saveToStorage();
                     this.closeModal();
@@ -721,7 +940,7 @@
 
                 deleteItem() {
                     if (confirm("Hapus barang ini?")) {
-                        this.items = this.items.filter(i => i.id !== this.form.id);
+                        this.items = this.items.filter(i => i.id !== this.tempItem.id);
                         this.saveToStorage();
                         this.closeModal();
                     }
@@ -737,36 +956,67 @@
                         price: item.sellPrice,
                         buyPrice: item.buyPrice,
                         qty: 1,
-                        maxStock: item.stock
+                        maxStock: item.stock,
+                        isDebt: false,
+                        customerName: ''
                     };
                     this.isSellModalOpen = true;
                 },
                 closeSellModal() { this.isSellModalOpen = false; },
 
                 confirmSale() {
-                    const { itemId, qty, price, buyPrice, itemName } = this.sellForm;
-                    const itemIdx = this.items.findIndex(i => i.id === itemId);
+                    if (this.sellForm.qty > this.sellForm.maxStock) return alert("Stok tidak cukup!");
 
-                    if (itemIdx === -1) return;
-                    if (this.items[itemIdx].stock < qty) return alert("Stok tidak cukup!");
+                    // DEBT LOGIC
+                    if (this.sellForm.isDebt) {
+                        if (!this.sellForm.customerName) return alert("Nama Peminjam wajib diisi!");
 
-                    // 1. Deduct Stock
-                    this.items[itemIdx].stock -= qty;
+                        // Add to Debts
+                        this.debts.push({
+                            id: Date.now(),
+                            timestamp: new Date().toISOString(),
+                            customerName: this.sellForm.customerName,
+                            itemId: this.sellForm.itemId, // Store itemId for potential future use
+                            itemName: this.sellForm.itemName,
+                            qty: this.sellForm.qty,
+                            price: this.sellForm.price,
+                            buyPrice: this.sellForm.buyPrice, // Store buyPrice for profit calculation when paid
+                            total: this.sellForm.qty * this.sellForm.price,
+                            status: 'unpaid'
+                        });
 
-                    // 2. Add Log
-                    const log = {
-                        id: Date.now(),
-                        type: 'out',
-                        itemId, itemName, qty, price, buyPrice,
-                        timestamp: new Date().toISOString()
-                    };
-                    this.logs.unshift(log);
+                        // Reduce Stock ONLY (No Revenue Log yet)
+                        const idx = this.items.findIndex(i => i.id === this.sellForm.itemId);
+                        if (idx !== -1) {
+                            this.items[idx].stock -= this.sellForm.qty;
+                        }
+
+                        alert("Hutang tercatat! Stok berkurang, tapi belum masuk omzet.");
+
+                    } else {
+                        // NORMAL SALE
+                        const log = {
+                            id: Date.now(),
+                            timestamp: new Date().toISOString(),
+                            type: 'out',
+                            itemId: this.sellForm.itemId,
+                            itemName: this.sellForm.itemName,
+                            qty: parseInt(this.sellForm.qty),
+                            price: parseInt(this.sellForm.price),
+                            buyPrice: parseInt(this.sellForm.buyPrice)
+                        };
+
+                        this.logs.unshift(log); // Use unshift to add to the beginning
+                        const idx = this.items.findIndex(i => i.id === this.sellForm.itemId);
+                        if (idx !== -1) {
+                            this.items[idx].stock -= log.qty;
+                        }
+
+                        this.playSound('coin'); // Sound only for cash
+                    }
 
                     this.saveToStorage();
                     this.closeSellModal();
-
-                    // Optional: Ask for receipt
-                    // if(confirm("Kirim Struk WA?")) this.sendWhatsApp(log);
                 },
                 saveStock() {
                     const { itemId, qty, buyPrice, sellPrice } = this.stockForm;
@@ -815,7 +1065,53 @@
                     alert(`Stok ditambahkan!\nHarga Modal (Rata-rata) sekarang: ${this.formatRupiah(this.items[itemIdx].buyPrice)}`);
                 },
 
+                // AUDIO SYSTEM
+                initAudio() {
+                    // Coin Sound (Short "Ka-Ching")
+                    this.audioCoin = new Audio("https://cdn.pixabay.com/audio/2021/08/04/audio_0625c1539c.mp3"); // Source: Pixabay Royalty Free
+
+                    // Printer Sound (Short "Dot Matrix / Fax")
+                    this.audioPrint = new Audio("https://cdn.pixabay.com/audio/2024/05/24/audio_7314757390.mp3"); // Source: Pixabay Royalty Free
+
+                    // Preload
+                    this.audioCoin.load();
+                    this.audioPrint.load();
+                },
+
+                playSound(type) {
+                    if (type === 'coin') {
+                        this.audioCoin.currentTime = 0;
+                        this.audioCoin.play().catch(e => console.log("Audio play failed:", e));
+                    } else if (type === 'print') {
+                        this.audioPrint.currentTime = 0;
+                        this.audioPrint.play().catch(e => console.log("Audio play failed:", e));
+                    }
+                },
+
                 // NEW FEATURES
+                openReceipt(log) {
+                    this.receiptData = { ...log };
+                    this.isReceiptModalOpen = true;
+                },
+
+                downloadReceipt() {
+                    this.playSound('print');
+                    const el = document.getElementById('receipt-preview');
+                    html2canvas(el, { scale: 2 }).then(canvas => {
+                        const link = document.createElement('a');
+                        link.download = `Struk_WarungSyifa_${this.receiptData.id}.png`;
+                        link.href = canvas.toDataURL("image/png");
+                        link.click();
+                    });
+                },
+
+                emailReceipt() {
+                    const log = this.receiptData;
+                    const subject = `Struk Belanja Warung Syifa - ${log.itemName}`;
+                    const body = `Halo,%0A%0ABerikut detail pembelian anda di Warung Syifa:%0A%0AItem: ${log.itemName}%0AJumlah: ${log.qty}%0AHarga Satuan: ${this.formatRupiah(log.price)}%0ATotal: ${this.formatRupiah(log.qty * log.price)}%0AWaktu: ${this.formatDateShort(log.timestamp)} ${this.formatTime(log.timestamp)}%0A%0ATerima kasih!`;
+                    window.open(`mailto:?subject=${subject}&body=${body}`);
+                },
+
                 sendWhatsApp(log) {
                     const text = `*WARUNG SYIFA*%0A${this.currentDate}%0A%0AItem: ${log.itemName}%0AJumlah: ${log.qty}%0ATotal: ${this.formatRupiah(log.qty * log.price)}%0A%0ATerima kasih sudah berbelanja! 🙏`;
                     window.open(`https://wa.me/?text=${text}`, '_blank');
@@ -825,6 +1121,7 @@
                     const data = {
                         items: this.items,
                         logs: this.logs,
+                        debts: this.debts, // Include debts in backup
                         backupDate: new Date().toISOString()
                     };
                     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -844,10 +1141,11 @@
                     reader.onload = (e) => {
                         try {
                             const data = JSON.parse(e.target.result);
-                            if (data.items && data.logs) {
+                            if (data.items && data.logs) { // Check for debts too
                                 if (confirm(`Restore data dari tanggal ${data.backupDate || 'Unknown'}? Data sekarang akan ditimpa.`)) {
                                     this.items = data.items;
                                     this.logs = data.logs;
+                                    this.debts = data.debts || []; // Restore debts, default to empty array if not present
                                     this.saveToStorage();
                                     alert("Berhasil restore data!");
                                     this.isSettingsModalOpen = false;
@@ -901,6 +1199,7 @@
                         const payload = {
                             items: this.items,
                             logs: this.logs,
+                            debts: this.debts, // Include debts in sync
                             timestamp: new Date().toISOString()
                         };
 
@@ -926,10 +1225,129 @@
                     }
                 },
 
+                async pullFromGoogle() {
+                    if (!this.googleScriptUrl) return alert("Mohon isi URL Google Apps Script!");
+
+                    if (!confirm("PERINGATAN: Data di HP ini akan DITIMPA dengan data dari Cloud (Google Sheet).\n\nPastikan data di Cloud sudah yang paling baru.\nLanjutkan?")) return;
+
+                    const btn = document.activeElement;
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Loading...';
+                    btn.disabled = true;
+
+                    try {
+                        const response = await fetch(this.googleScriptUrl);
+                        if (!response.ok) throw new Error("Gagal mengambil data (Network Error)");
+
+                        const data = await response.json();
+
+                        if (data.error) throw new Error(data.error);
+
+                        if (data.items && data.logs) {
+                            this.items = data.items;
+                            this.logs = data.logs;
+                            this.debts = data.debts || []; // Restore debts, default to empty array if not present
+                            this.saveToStorage();
+                            alert("Berhasil mengambil data dari Cloud!");
+                            this.isSettingsModalOpen = false;
+                        } else {
+                            throw new Error("Format data cloud tidak valid.");
+                        }
+
+                    } catch (err) {
+                        alert("Gagal ambil data: " + err.message + "\n\nPastikan Script sudah di-Deploy ulang dengan akses 'Anyone'.");
+                    } finally {
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                    }
+                },
+
+                // SCANNER SYSTEM
+                startScanner(mode) {
+                    this.scanMode = mode;
+                    this.isScannerOpen = true;
+
+                    this.$nextTick(() => {
+                        this.scanner = new Html5Qrcode("reader");
+                        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+                        this.scanner.start({ facingMode: "environment" }, config, (decodedText) => {
+                            this.onScanSuccess(decodedText);
+                        }, (errorMessage) => {
+                            // ignore errors (scanning...)
+                        }).catch(err => {
+                            alert("Kamera tidak dapat diakses: " + err);
+                            this.isScannerOpen = false;
+                        });
+                    });
+                },
+
+                stopScanner() {
+                    if (this.scanner) {
+                        this.scanner.stop().then(() => {
+                            this.scanner.clear();
+                            this.isScannerOpen = false;
+                        });
+                    } else {
+                        this.isScannerOpen = false;
+                    }
+                },
+
+                onScanSuccess(code) {
+                    this.playSound('coin'); // Beep logic
+
+                    if (this.scanMode === 'input') {
+                        // Register Mode
+                        this.tempItem.barcode = code;
+                        this.stopScanner();
+                        alert(`Barcode Terdeteksi: ${code}`);
+                    } else {
+                        // Kiosk Mode (Sell)
+                        const foundItem = this.items.find(i => i.barcode === code);
+                        if (foundItem) {
+                            this.stopScanner();
+                            this.openSellModal(foundItem);
+                        } else {
+                            alert(`Barang tidak ditemukan untuk barcode: ${code}\nSilakan daftarkan dulu di menu stok.`);
+                            // Don't stop scanner, let them try again
+                        }
+                    }
+                },
+
                 saveToStorage() {
                     localStorage.setItem('warung_items', JSON.stringify(this.items));
                     localStorage.setItem('warung_logs', JSON.stringify(this.logs));
+                    localStorage.setItem('warung_debts', JSON.stringify(this.debts));
                     localStorage.setItem('warung_gscript_url', this.googleScriptUrl);
+                },
+
+                // DEBT METHODS
+                payDebt(debtId) {
+                    const debt = this.debts.find(d => d.id === debtId);
+                    if (!debt) return;
+                    if (!confirm(`Lunasi hutang ${debt.customerName} sebesar ${this.formatRupiah(debt.total)}?`)) return;
+
+                    // 1. Mark as Paid (Remove from debts list or mark status?)
+                    // Let's remove from debts and move to LOGS (real revenue)
+
+                    this.logs.unshift({ // Use unshift to add to the beginning
+                        id: Date.now(),
+                        timestamp: new Date().toISOString(),
+                        type: 'out',
+                        itemId: debt.itemId, // Use original itemId
+                        itemName: `${debt.itemName} (Lunas: ${debt.customerName})`,
+                        qty: debt.qty,
+                        price: debt.price,
+                        buyPrice: debt.buyPrice // Use stored buyPrice for accurate profit
+                    });
+
+                    // Actually, I should update `sellForm.buyPrice` into `debts` in the previous chunk.
+                    // For now, I will remove the debt from the array.
+                    this.debts = this.debts.filter(d => d.id !== debtId);
+
+                    this.playSound('coin');
+                    this.saveToStorage();
+                    alert("Hutang Lunas & Masuk Laporan Penjualan!");
                 }
             }
         }
